@@ -1,5 +1,5 @@
 #include <FastLED.h>
-#include <ezButton.h>
+#include <EasyButton.h>
 
 #define LED_PIN     0
 #define NUM_LEDS    90  //I have 44 LEDs in the back of the amp and 46 in front
@@ -7,12 +7,8 @@
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
 
-
 #define COLOR_BUTTON_PIN  4
 #define MODE_BUTTON_PIN  6
-
-
-
 #define UPDATES_PER_SECOND 100
 
 
@@ -36,51 +32,54 @@ int currentBrightness = 100;
 //declare a variable to keep track of the current color
 int currentColor = 1;
 
-int colorButtonPressTime = 0;
-int modeButtonPressTime = 0;
 
-
-ezButton colorButton(COLOR_BUTTON_PIN);
-ezButton modeButton(MODE_BUTTON_PIN);
+//Create two EasyButton objects for our color and mode buttons
+EasyButton colorButton(COLOR_BUTTON_PIN);
+EasyButton modeButton(MODE_BUTTON_PIN);
 
 void setup() {
-  //Set a power on delay, declare our LEDS and add them to a strip, set the brightness, and display red
-  delay( 3000 ); 
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
-  FastLED.setBrightness(  currentBrightness );
-  fill_solid( leds, NUM_LEDS, CRGB::Red);
+  //This section sets up our LEDs
+  delay( 3000 ); //delay for safety
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip ); //create a strip by adding all LEDs
+  FastLED.setBrightness(  currentBrightness ); //sets brightness
+  fill_solid( leds, NUM_LEDS, CRGB::Red); //sets the strip to read
+
+
+  //This section sets up everything relating to our buttons
+  //initalize the buttons
+  colorButton.begin(); 
+  modeButton.begin();
+
+  //This section attaches the callbacks required for short and long presses of each button. 
+  colorButton.onPressed(cycleColor);
 }
 
 
 
 void loop() {
-  
-  colorButton.loop(); // MUST call the loop() function first
 
-  
-  if(colorButton.isPressed()){
-    cycleColor();
-  }
+  //call these functions on each EazyButton object to read their states
+  colorButton.read();
+  modeButton.read();
 
+  //update the led show and the updates per second
   FastLED.show();
   FastLED.delay(1000/ UPDATES_PER_SECOND);
 }
 
-  
 
 
-
-
-
-
-
+//this function is used to cycle the chosen color of the lights
 void cycleColor(){
-  currentColor++;
+  currentColor++; //iterates the current color
 
+  //if we iterate past 8, we need to restart the cycling, so we set currentColor back to 1
   if(currentColor > 8){
     currentColor = 1;
   }
 
+  //This switch statement handles the cycling of quick colors. There are currently 8 "quick" colors you can cycle through 
+  //by short pressing the color button, and are as follows in order: Red, Orange, Yellow, Blue, Indigo, Violet, White
   switch (currentColor) {
   case 1:
     fill_solid( leds, NUM_LEDS, CRGB::Red);
