@@ -1,4 +1,5 @@
 #include <FastLED.h>
+#include <ezButton.h>
 
 #define LED_PIN     0
 #define NUM_LEDS    90  //I have 44 LEDs in the back of the amp and 46 in front
@@ -37,12 +38,12 @@ int currentColor = 1;
 
 int colorButtonPressTime = 0;
 int modeButtonPressTime = 0;
+
+
+ezButton colorButton(COLOR_BUTTON_PIN);
+ezButton modeButton(MODE_BUTTON_PIN);
+
 void setup() {
-
-  //set the pin mode for our push buttons
-  pinMode(COLOR_BUTTON_PIN, INPUT);
-  pinMode(MODE_BUTTON_PIN, INPUT);
-
   //Set a power on delay, declare our LEDS and add them to a strip, set the brightness, and display red
   delay( 3000 ); 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
@@ -53,30 +54,21 @@ void setup() {
 
 
 void loop() {
+  
+  colorButton.loop(); // MUST call the loop() function first
 
-  if(colorButtonPressTime > 0){
-    if(colorButtonPressTime + 1000 > millis()){
-      pinMode(COLOR_BUTTON_PIN, INPUT);
-      colorButtonPressTime = 0;
-    }
-    
-  }else{
-      colorButtonState = digitalRead(COLOR_BUTTON_PIN);
-      modeButtonState = digitalRead(MODE_BUTTON_PIN);
-  }
-
-  if (colorButtonState == HIGH) {
-    colorButtonPressTime = millis();
-    pinMode(COLOR_BUTTON_PIN, OUTPUT);
-    colorButtonState = LOW;
+  
+  if(colorButton.isPressed()){
     cycleColor();
   }
 
-  
   FastLED.show();
   FastLED.delay(1000/ UPDATES_PER_SECOND);
-
 }
+
+  
+
+
 
 
 
