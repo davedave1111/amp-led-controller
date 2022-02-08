@@ -1,5 +1,8 @@
 #include <FastLED.h>
 #include <EasyButton.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
 
 //setting up variables for the LED strips
 #define LED_PIN     0   //digital pin for the LED strip on the board
@@ -8,6 +11,9 @@
 #define COLOR_ORDER GRB
 #define UPDATES_PER_SECOND 100
 CRGB leds[NUM_LEDS]; //create a strip
+
+#define ACCELERATION_LOWER_BOUND   -10
+#define ACCELERATION_UPPER_BOUND   -2
 
 //Variables for the buttons
 #define COLOR_BUTTON_PIN  4 //Digital pin for the color button
@@ -36,10 +42,13 @@ int currentBrightness = 255;
 int brightnessTracker = 10;
 
 //declare a variable to keep track of the current color
-int currentColor = 1;
+int currentColorTracker = 1;
 
 //This variable is used to determine how fast colors fade. It is the ms time it delays
 int ledFadeDelay = 2;
+
+//
+int currentModeTracker = 1;
 
 //Create two EasyButton objects for our color and mode buttons
 //*NOTE* the true and false values given to the constructors denote that we
@@ -48,9 +57,12 @@ int ledFadeDelay = 2;
 EasyButton colorButton(COLOR_BUTTON_PIN, 40, true, false);
 EasyButton modeButton(MODE_BUTTON_PIN, 40, true, false);
 
+Adafruit_MPU6050 mpu;
 
 //Typical setup function where we get the LEDS and buttons setup 
 void setup() {
+  mpu.begin();
+  
   //This section sets up our LEDs
   delay( 3000 ); //delay for safety
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip ); //create a strip by adding all LEDs
@@ -70,6 +82,7 @@ void setup() {
   colorButton.onPressedFor(LONG_PRESS_TIME_MS, colorFadeSelector); //attaches the colorFadeSelector function for our long press
 
   //for the mode button
+  modeButton.onPressed(modeManager);
   modeButton.onPressedFor(LONG_PRESS_TIME_MS, changeBrightness); //attaches the changeBrightness method for the long press
 }
 
@@ -94,16 +107,16 @@ void loop() {
 
 //this function is used to cycle the chosen quick color (ei color of the rainbow) with a single button press
 void cycleQuickColor(){
-  currentColor++; //iterates the current color
+  currentColorTracker++; //iterates the current color
 
   //if we iterate past 8, we need to restart the cycling, so we set currentColor back to 1
-  if(currentColor > 8){
-    currentColor = 1;
+  if(currentColorTracker > 8){
+    currentColorTracker = 1;
   }
 
   //This switch statement handles the cycling of quick colors. There are currently 8 "quick" colors you can cycle through 
   //by short pressing the color button, and are as follows in order: Red, Orange, Yellow, Blue, Indigo, Violet, White
-  switch (currentColor) {
+  switch (currentColorTracker) {
   case 1:
     fill_solid( leds, NUM_LEDS, CRGB::Red);
     break;
@@ -159,13 +172,14 @@ void changeBrightness(){
 
     //In this mode, the color button acts as the "exit" button, so we check if it has been pressed.
     if(colorButton.isPressed()){
-      currentColor--; //We need to decrement the currentColor variable, as a press will automatically increment the quick color
+      currentColorTracker--; //We need to decrement the currentColor variable, as a press will automatically increment the quick color
       confirmLight(); //flash t5he confirm light as we are changing modes
       return; //return ending this function
     }
     
     //in the brightness toggle mode, the mode button acts as user input to iterate through all brightnesses
     if(modeButton.isPressed()){
+      currentModeTracker--;
       brightnessTracker++; //if it is pressed, we increment the brightness tracker
       delay(250); // had to add this delay, because if we dont it moves too fast
     }
@@ -257,6 +271,7 @@ void colorFadeSelector(){
 
     modeButton.read();
     if(modeButton.isPressed()){
+      currentModeTracker--;
       confirmLight();
       isRunning = false;
       return;
@@ -281,6 +296,7 @@ void colorFadeSelector(){
 
       modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
       if(modeButton.isPressed()){
+        currentModeTracker--;
         isRunning = false;
         confirmLight();
         return;
@@ -305,6 +321,7 @@ void colorFadeSelector(){
 
       modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
       if(modeButton.isPressed()){
+        currentModeTracker--;
         isRunning = false;
         confirmLight();
         return;
@@ -330,6 +347,7 @@ void colorFadeSelector(){
 
       modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
       if(modeButton.isPressed()){
+        currentModeTracker--;
         isRunning = false;
         confirmLight();
         return;
@@ -354,6 +372,7 @@ void colorFadeSelector(){
 
       modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
       if(modeButton.isPressed()){
+        currentModeTracker--;
         isRunning = false;
         confirmLight();
         return;
@@ -378,6 +397,7 @@ void colorFadeSelector(){
 
       modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
       if(modeButton.isPressed()){
+        currentModeTracker--;
         isRunning = false;
         confirmLight();
         return;
@@ -391,3 +411,84 @@ void colorFadeSelector(){
   }
 
 } 
+
+
+
+void modeManager(){
+
+  currentModeTracker++;
+
+  if(currentModeTracker > 3){
+    currentModeTracker = 1;
+  }
+
+  switch(currentModeTracker){
+    case 1:
+      currentColorTracker--;
+      cycleQuickColor();
+      break;
+    case 2:
+      defaultOffFlash();
+      break;
+    case 3:
+      defaultColorFlash();
+      break;
+    default:
+      break;
+    
+  }
+  
+}
+
+
+void defaultOffFlash(){
+  while(true){
+    modeButton.read();
+    colorButton.read();
+
+    if(modeButton.isPressed()){
+      //currentModeTracker--;
+      break;
+    }
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    
+    double accelTotal = a.acceleration.x*a.acceleration.y*a.acceleration.z;
+    
+    if(accelTotal > ACCELERATION_UPPER_BOUND || accelTotal < ACCELERATION_LOWER_BOUND){
+      FastLED.setBrightness(255);
+      FastLED.show();
+    }else{
+      FastLED.setBrightness(0);
+      FastLED.show();
+    }
+  }
+  
+}
+
+
+void defaultColorFlash(){
+  while(true){
+    modeButton.read();
+    colorButton.read();
+
+    if(modeButton.isPressed()){
+      //currentModeTracker--;
+      break;
+    }
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    
+    double accelTotal = a.acceleration.x*a.acceleration.y*a.acceleration.z;
+    
+    if(accelTotal > ACCELERATION_UPPER_BOUND || accelTotal < ACCELERATION_LOWER_BOUND){
+      fill_solid( leds, NUM_LEDS, CRGB::White);
+      FastLED.show();
+    }else{
+      currentColorTracker--;
+      cycleQuickColor();
+      FastLED.show();
+    }
+  }
+  
+}
