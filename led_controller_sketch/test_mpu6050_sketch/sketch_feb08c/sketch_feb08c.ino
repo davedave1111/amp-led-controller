@@ -27,7 +27,7 @@ void setup() {
 void loop() {
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  double accelTotal = a.acceleration.x*a.acceleration.y*a.acceleration.z;
+  double accelTotal = abs(a.acceleration.x*a.acceleration.y*a.acceleration.z);
   Serial.println(accelTotal);
   //Serial.print("Acceleration X: ");
   //Serial.print(a.acceleration.x);

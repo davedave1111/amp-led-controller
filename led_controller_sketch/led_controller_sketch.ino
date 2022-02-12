@@ -12,8 +12,7 @@
 #define UPDATES_PER_SECOND 100
 CRGB leds[NUM_LEDS]; //create a strip
 
-#define ACCELERATION_LOWER_BOUND   -10
-#define ACCELERATION_UPPER_BOUND   -2
+#define ACCELERATION_UPPER_BOUND   5
 
 //Variables for the buttons
 #define COLOR_BUTTON_PIN  4 //Digital pin for the color button
@@ -450,12 +449,8 @@ void defaultOffFlash(){
       //currentModeTracker--;
       break;
     }
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
     
-    double accelTotal = a.acceleration.x*a.acceleration.y*a.acceleration.z;
-    
-    if(accelTotal > ACCELERATION_UPPER_BOUND || accelTotal < ACCELERATION_LOWER_BOUND){
+    if(getAccelData() >= ACCELERATION_UPPER_BOUND){
       FastLED.setBrightness(255);
       FastLED.show();
     }else{
@@ -476,12 +471,8 @@ void defaultColorFlash(){
       //currentModeTracker--;
       break;
     }
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
     
-    double accelTotal = a.acceleration.x*a.acceleration.y*a.acceleration.z;
-    
-    if(accelTotal > ACCELERATION_UPPER_BOUND || accelTotal < ACCELERATION_LOWER_BOUND){
+    if(getAccelData() >= ACCELERATION_UPPER_BOUND){
       fill_solid( leds, NUM_LEDS, CRGB::White);
       FastLED.show();
     }else{
@@ -491,4 +482,12 @@ void defaultColorFlash(){
     }
   }
   
+}
+
+
+double getAccelData(){
+   sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+  double accelTotal = abs(a.acceleration.x*a.acceleration.y*a.acceleration.z);
+  return accelTotal;
 }
