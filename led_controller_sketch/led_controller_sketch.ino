@@ -61,6 +61,8 @@ int currentModeTracker = 1;
 bool allowColorChange = true;
 bool allowModeChange = true;
 
+bool usedToPickColor = true;
+
 //Create two EasyButton objects for our color and mode buttons
 //*NOTE* the true and false values given to the constructors denote that we
 //want to invert the button input and not use the built in pull-up resistor respectively, 
@@ -172,7 +174,6 @@ void changeBrightness(){
     confirmLight(); //flash the lights to confirm we have successfully entered the long-press mode 
     brightnessTracker = 1; //set us to the lowest brightness
     while(true){
-
       FastLED.setBrightness(currentBrightness); //set the brightness
       FastLED.show(); //show
 
@@ -264,10 +265,15 @@ void confirmLight(){
 //pressed, it retains the color and exits the color selection mode. I may edit this later to also double
 //as a stand alone mode, and keep track of whether I am selecting a new color or just using this as an animation. 
 void colorFadeSelector(){
+
   if(allowColorChange){
     allowColorChange = false;
-    allowModeChange = false;
-    confirmLight();
+
+    if(usedToPickColor){
+      allowModeChange = false;
+      confirmLight();
+    }
+    
     int isRunning = true;
     while(isRunning){
       //start from red
@@ -284,7 +290,9 @@ void colorFadeSelector(){
 
       modeButton.read();
       if(modeButton.isPressed()){
-        confirmLight();
+        if(usedToPickColor){
+          confirmLight();
+        }
         isRunning = false;
         return;
       }
@@ -308,8 +316,10 @@ void colorFadeSelector(){
 
         modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
         if(modeButton.isPressed()){
+          if(usedToPickColor){
+            confirmLight();
+          }
           isRunning = false;
-          confirmLight();
           return;
         }
 
@@ -332,8 +342,10 @@ void colorFadeSelector(){
 
         modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
         if(modeButton.isPressed()){
+          if(usedToPickColor){
+            confirmLight();
+          }
           isRunning = false;
-          confirmLight();
           return;
         }
       
@@ -357,8 +369,10 @@ void colorFadeSelector(){
 
         modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
         if(modeButton.isPressed()){
+          if(usedToPickColor){
+            confirmLight();
+          }
           isRunning = false;
-          confirmLight();
           return;
         }
 
@@ -381,8 +395,10 @@ void colorFadeSelector(){
 
         modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
         if(modeButton.isPressed()){
+          if(usedToPickColor){
+            confirmLight();
+          }
           isRunning = false;
-          confirmLight();
           return;
         }
 
@@ -405,8 +421,10 @@ void colorFadeSelector(){
   
         modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
         if(modeButton.isPressed()){
+          if(usedToPickColor){
+            confirmLight();
+          }
           isRunning = false;
-          confirmLight();
           return;
         }
 
@@ -421,7 +439,7 @@ void colorFadeSelector(){
 void modeManager(){
   if(allowModeChange){
     currentModeTracker++;
-    if(currentModeTracker > 3){
+    if(currentModeTracker > 4){
       currentModeTracker = 1;
     }
     switch(currentModeTracker){
@@ -437,6 +455,11 @@ void modeManager(){
       case 3:
         allowColorChange = true;
         defaultColorFlash();
+        break;
+      case 4:
+        usedToPickColor = false;
+        colorFadeSelector();
+        usedToPickColor = true;
         break;
       default:
         break;
