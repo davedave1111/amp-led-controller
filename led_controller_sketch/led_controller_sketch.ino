@@ -12,7 +12,8 @@
 #define UPDATES_PER_SECOND 100
 CRGB leds[NUM_LEDS]; //create a strip
 
-#define ACCELERATION_UPPER_BOUND   5
+//accelerometer bound that we use to determine when to turn on lights
+#define ACCELERATION_UPPER_BOUND   10
 
 //Variables for the buttons
 #define COLOR_BUTTON_PIN  4 //Digital pin for the color button
@@ -40,14 +41,25 @@ int currentBrightness = 255;
 //it starts at 10 as we are on level 10, 100%
 int brightnessTracker = 10;
 
+//Stuff for keeping track of color (These are the values for RGB of the current color we are on)
+int currentR;
+int currentG;
+int currentB;
+
 //declare a variable to keep track of the current color
 int currentColorTracker = 1;
 
 //This variable is used to determine how fast colors fade. It is the ms time it delays
 int ledFadeDelay = 2;
 
-//
+//Used to track the current mode we are in
 int currentModeTracker = 1;
+
+
+//A couple booleans we use to keep track of if we want to color or mode buttons to change the mode or color
+//This is useful if we are trying to avoid using the button to exit a mode and also have it cycle a color or mode
+bool allowColorChange = true;
+bool allowModeChange = true;
 
 //Create two EasyButton objects for our color and mode buttons
 //*NOTE* the true and false values given to the constructors denote that we
@@ -90,6 +102,8 @@ void setup() {
 //to service the LEDs and buttons. Most of the heavy lifting is done in the functions below. 
 void loop() {
 
+  allowModeChange = true;
+  allowColorChange = true;
   //ensure we have the correct brightness
   FastLED.setBrightness(currentBrightness);
 
@@ -106,121 +120,122 @@ void loop() {
 
 //this function is used to cycle the chosen quick color (ei color of the rainbow) with a single button press
 void cycleQuickColor(){
-  currentColorTracker++; //iterates the current color
+  if(allowColorChange){
+    currentColorTracker++; //iterates the current color
+    //if we iterate past 8, we need to restart the cycling, so we set currentColor back to 1
+    if(currentColorTracker > 8){
+      currentColorTracker = 1;
+    }
 
-  //if we iterate past 8, we need to restart the cycling, so we set currentColor back to 1
-  if(currentColorTracker > 8){
-    currentColorTracker = 1;
-  }
-
-  //This switch statement handles the cycling of quick colors. There are currently 8 "quick" colors you can cycle through 
-  //by short pressing the color button, and are as follows in order: Red, Orange, Yellow, Blue, Indigo, Violet, White
-  switch (currentColorTracker) {
-  case 1:
-    fill_solid( leds, NUM_LEDS, CRGB::Red);
-    break;
-  case 2:
-    fill_solid( leds, NUM_LEDS, CRGB::Orange);
-    break;
-  case 3:
-    fill_solid( leds, NUM_LEDS, CRGB::Yellow);
-    break;
-  case 4:
-    fill_solid( leds, NUM_LEDS, CRGB::Green);
-    break;
-  case 5:
-    fill_solid( leds, NUM_LEDS, CRGB::Blue);
-    break;
-  case 6:
-    fill_solid( leds, NUM_LEDS, CRGB::Indigo);
-    break;
-  case 7:
-    fill_solid( leds, NUM_LEDS, CRGB::Violet);
-    break;
-  case 8:
-    fill_solid( leds, NUM_LEDS, CRGB::White);
-    break;
-  default:
-    break;
-  }
-  
-  
+    //This switch statement handles the cycling of quick colors. There are currently 8 "quick" colors you can cycle through 
+    //by short pressing the color button, and are as follows in order: Red, Orange, Yellow, Blue, Indigo, Violet, White
+    switch (currentColorTracker) {
+    case 1:
+      fill_solid( leds, NUM_LEDS, CRGB::Red);
+      break;
+    case 2:
+      fill_solid( leds, NUM_LEDS, CRGB::Orange);
+      break;
+    case 3:
+      fill_solid( leds, NUM_LEDS, CRGB::Yellow);
+      break;
+    case 4:
+      fill_solid( leds, NUM_LEDS, CRGB::Green);
+      break;
+    case 5:
+      fill_solid( leds, NUM_LEDS, CRGB::Blue);
+      break;
+    case 6:
+      fill_solid( leds, NUM_LEDS, CRGB::Indigo);
+      break;
+    case 7:
+      fill_solid( leds, NUM_LEDS, CRGB::Violet);
+      break;
+    case 8:
+      fill_solid( leds, NUM_LEDS, CRGB::White);
+      break;
+    default:
+      break;
+    } 
+  } 
 }
+
 
 
 //Used to change the current brightness of the lights. This is attached to the isPressedFor callback for the mode
 //button. Essentially, if the mode button is held down for the given long press time, it allows the user to choose 
 //a desired brightness, from level 1 - 10
 void changeBrightness(){
-  confirmLight(); //flash the lights to confirm we have successfully entered the long-press mode 
-  brightnessTracker = 1; //set us to the lowest brightness
-  while(true){
+  if(allowModeChange){
+    allowModeChange = false;
+    allowColorChange = false;
+    confirmLight(); //flash the lights to confirm we have successfully entered the long-press mode 
+    brightnessTracker = 1; //set us to the lowest brightness
+    while(true){
 
-    FastLED.setBrightness(currentBrightness); //set the brightness
-    FastLED.show(); //show
+      FastLED.setBrightness(currentBrightness); //set the brightness
+      FastLED.show(); //show
 
-    //Here we handle if the brightness tracking variable goes beyond the number of modes. 
-    //if it does we reset the value to one
-    if(brightnessTracker > 10){
-      brightnessTracker = 1;
-    }
+      //Here we handle if the brightness tracking variable goes beyond the number of modes. 
+      //if it does we reset the value to one
+      if(brightnessTracker > 10){
+        brightnessTracker = 1;
+      }
 
-    //read both buttons to ensure we are aware of the inputs they have at a given moment
-    modeButton.read();
-    colorButton.read();
+      //read both buttons to ensure we are aware of the inputs they have at a given moment
+      modeButton.read();
+      colorButton.read();
 
-    //In this mode, the color button acts as the "exit" button, so we check if it has been pressed.
-    if(colorButton.isPressed()){
-      currentColorTracker--; //We need to decrement the currentColor variable, as a press will automatically increment the quick color
-      confirmLight(); //flash t5he confirm light as we are changing modes
-      return; //return ending this function
-    }
+      //In this mode, the color button acts as the "exit" button, so we check if it has been pressed.
+      if(colorButton.isPressed()){
+        confirmLight(); //flash t5he confirm light as we are changing modes
+        return; //return ending this function
+      }
     
-    //in the brightness toggle mode, the mode button acts as user input to iterate through all brightnesses
-    if(modeButton.isPressed()){
-      currentModeTracker--;
-      brightnessTracker++; //if it is pressed, we increment the brightness tracker
-      delay(250); // had to add this delay, because if we dont it moves too fast
-    }
+      //in the brightness toggle mode, the mode button acts as user input to iterate through all brightnesses
+      if(modeButton.isPressed()){
+        brightnessTracker++; //if it is pressed, we increment the brightness tracker
+        delay(250); // had to add this delay, because if we dont it moves too fast
+      }
     
-    //This switch essentially maps the brightnessTracker to values incrementing by 25, with the last
-    //incrementing by 30 to hit full brightness. These are roughly evenly spaced out brightnesses, so it works
-    //for having 10 different brightness levels. 
-    switch (brightnessTracker) {
-    case 1:
-      currentBrightness = 25;
-      break;
-    case 2:
-      currentBrightness = 50;
-      break;
-    case 3:
-      currentBrightness = 75;
-      break;
-    case 4:
-      currentBrightness = 100;
-      break;
-    case 5:
-      currentBrightness = 125;
-      break;
-    case 6:
-      currentBrightness = 150;
-      break;
-    case 7:
-      currentBrightness = 175;
-      break;
-    case 8:
-      currentBrightness = 200;
-      break;
-    case 9:
-      currentBrightness = 225;
-      break;
-    case 10:
-      currentBrightness = 255;
-      break;
-    default:
-      break;
+      //This switch essentially maps the brightnessTracker to values incrementing by 25, with the last
+      //incrementing by 30 to hit full brightness. These are roughly evenly spaced out brightnesses, so it works
+      //for having 10 different brightness levels. 
+      switch (brightnessTracker) {
+      case 1:
+        currentBrightness = 25;
+        break;
+      case 2:
+        currentBrightness = 50;
+        break;
+      case 3:
+        currentBrightness = 75;
+        break;
+      case 4:
+        currentBrightness = 100;
+        break;
+      case 5:
+        currentBrightness = 125;
+        break;
+      case 6:
+        currentBrightness = 150;
+        break;
+      case 7:
+        currentBrightness = 175;
+        break;
+      case 8:
+        currentBrightness = 200;
+        break;
+      case 9:
+        currentBrightness = 225;
+        break;
+      case 10:
+        currentBrightness = 255;
+        break;
+      default:
+        break;
+      }   
     }
-   
   }
 }
 
@@ -244,199 +259,189 @@ void confirmLight(){
   
 }
 
-
-
-
-
 //This mode is used to fade between all possible colors to allow for more precise color picking
 //beyond just the 8 "quick" colors. It fades through all colors, and when a the mode button is 
 //pressed, it retains the color and exits the color selection mode. I may edit this later to also double
 //as a stand alone mode, and keep track of whether I am selecting a new color or just using this as an animation. 
 void colorFadeSelector(){
-  bool isRunning = true;
-  confirmLight();
-  while(isRunning == true){
-    //start from red
-    for( int colorStep=0; colorStep <= 255; colorStep++ ) {
-
-    int r = 255;
-    int g = 0;
-    int b = colorStep;
-
-    // Now loop though each of the LEDs and set each one to the current color
-    for(int x = 0; x < NUM_LEDS; x++){
-        leds[x] = CRGB(r,g,b);
-    }
-
-    modeButton.read();
-    if(modeButton.isPressed()){
-      currentModeTracker--;
-      confirmLight();
-      isRunning = false;
-      return;
-    }
-
-    // Display the colors we just set on the actual LEDs
-    delay(ledFadeDelay); 
-    FastLED.show();
-    }
-
-    //into blue
-    for( int colorStep=255; colorStep >= 0; colorStep-- ) {
-
-      int r = colorStep;
-      int g = 0;
-      int b = 255;
-
-      // Now loop though each of the LEDs and set each one to the current color
-      for(int x = 0; x < NUM_LEDS; x++){
-          leds[x] = CRGB(r,g,b);
-      }
-
-      modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
-      if(modeButton.isPressed()){
-        currentModeTracker--;
-        isRunning = false;
-        confirmLight();
-        return;
-      }
-
-      // Display the colors we just set on the actual LEDs
-      delay(ledFadeDelay); 
-      FastLED.show();
-    }
-
-    //start from blue
-    for( int colorStep=0; colorStep <= 255; colorStep++ ) {
-
-      int r = 0;
-      int g = colorStep;
-      int b = 255; 
-
-      // Now loop though each of the LEDs and set each one to the current color
-      for(int x = 0; x < NUM_LEDS; x++){
-          leds[x] = CRGB(r,g,b);
-      }
-
-      modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
-      if(modeButton.isPressed()){
-        currentModeTracker--;
-        isRunning = false;
-        confirmLight();
-        return;
-      }
-      
-
-      // Display the colors we just set on the actual LEDs
-      delay(ledFadeDelay); 
-      FastLED.show();
-    } 
-
-    //into green
-    for( int colorStep=255; colorStep >= 0; colorStep-- ) {
-
-      int r = 0;
-      int g = 255;
-      int b = colorStep; 
-
-      // Now loop though each of the LEDs and set each one to the current color
-      for(int x = 0; x < NUM_LEDS; x++){
-          leds[x] = CRGB(r,g,b);
-      }
-
-      modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
-      if(modeButton.isPressed()){
-        currentModeTracker--;
-        isRunning = false;
-        confirmLight();
-        return;
-      }
-
-      // Display the colors we just set on the actual LEDs
-      delay(ledFadeDelay); 
-      LEDS.show();
-    }
-
-    //start from green
-    for( int colorStep=0; colorStep <= 255; colorStep++ ) {
-
-      int r = colorStep;
-      int g = 255;
-      int b = 0;
-
-      // Now loop though each of the LEDs and set each one to the current color
-      for(int x = 0; x < NUM_LEDS; x++){
-          leds[x] = CRGB(r,g,b);
-      }
-
-      modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
-      if(modeButton.isPressed()){
-        currentModeTracker--;
-        isRunning = false;
-        confirmLight();
-        return;
-      }
-
-      // Display the colors we just set on the actual LEDs
-      delay(ledFadeDelay); 
-      LEDS.show();
-    }
-
-    //into yellow
-    for( int colorStep=255; colorStep >= 0; colorStep-- ) {
+  if(allowColorChange){
+    allowColorChange = false;
+    allowModeChange = false;
+    confirmLight();
+    int isRunning = true;
+    while(isRunning){
+      //start from red
+      for( int colorStep=0; colorStep <= 255; colorStep++ ) {
 
       int r = 255;
-      int g = colorStep;
-      int b = 0;
+      int g = 0;
+      int b = colorStep;
 
       // Now loop though each of the LEDs and set each one to the current color
       for(int x = 0; x < NUM_LEDS; x++){
           leds[x] = CRGB(r,g,b);
       }
 
-      modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+      modeButton.read();
       if(modeButton.isPressed()){
-        currentModeTracker--;
-        isRunning = false;
         confirmLight();
+        isRunning = false;
         return;
       }
 
       // Display the colors we just set on the actual LEDs
-    delay(ledFadeDelay); 
-    LEDS.show();
+      delay(ledFadeDelay); 
+      FastLED.show();
+      }
+
+      //into blue
+      for( int colorStep=255; colorStep >= 0; colorStep-- ) {
+
+        int r = colorStep;
+        int g = 0;
+        int b = 255;
+
+        // Now loop though each of the LEDs and set each one to the current color
+        for(int x = 0; x < NUM_LEDS; x++){
+            leds[x] = CRGB(r,g,b);
+        }
+
+        modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+        if(modeButton.isPressed()){
+          isRunning = false;
+          confirmLight();
+          return;
+        }
+
+        // Display the colors we just set on the actual LEDs
+        delay(ledFadeDelay); 
+        FastLED.show();
+      }
+
+      //start from blue
+      for( int colorStep=0; colorStep <= 255; colorStep++ ) {
+
+        int r = 0;
+        int g = colorStep;
+        int b = 255; 
+
+        // Now loop though each of the LEDs and set each one to the current color
+        for(int x = 0; x < NUM_LEDS; x++){
+            leds[x] = CRGB(r,g,b);
+        }
+
+        modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+        if(modeButton.isPressed()){
+          isRunning = false;
+          confirmLight();
+          return;
+        }
+      
+
+        // Display the colors we just set on the actual LEDs
+        delay(ledFadeDelay); 
+        FastLED.show();
+      } 
+
+      //into green
+      for( int colorStep=255; colorStep >= 0; colorStep-- ) {
+
+        int r = 0;
+        int g = 255;
+        int b = colorStep; 
+
+        // Now loop though each of the LEDs and set each one to the current color
+        for(int x = 0; x < NUM_LEDS; x++){
+          leds[x] = CRGB(r,g,b);
+        }
+
+        modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+        if(modeButton.isPressed()){
+          isRunning = false;
+          confirmLight();
+          return;
+        }
+
+        // Display the colors we just set on the actual LEDs
+        delay(ledFadeDelay); 
+        LEDS.show();
+      }
+
+      //start from green
+      for( int colorStep=0; colorStep <= 255; colorStep++ ) {
+
+        int r = colorStep;
+        int g = 255;
+        int b = 0;
+
+        // Now loop though each of the LEDs and set each one to the current color
+        for(int x = 0; x < NUM_LEDS; x++){
+            leds[x] = CRGB(r,g,b);
+        }
+
+        modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+        if(modeButton.isPressed()){
+          isRunning = false;
+          confirmLight();
+          return;
+        }
+
+        // Display the colors we just set on the actual LEDs
+        delay(ledFadeDelay); 
+        LEDS.show();
+      }
+
+      //into yellow
+      for( int colorStep=255; colorStep >= 0; colorStep-- ) {
+
+        int r = 255;
+        int g = colorStep;
+        int b = 0;
+
+        // Now loop though each of the LEDs and set each one to the current color
+        for(int x = 0; x < NUM_LEDS; x++){
+            leds[x] = CRGB(r,g,b);
+        }
+  
+        modeButton.read(); //Check if the button to exit is pressed, then set isRunning to false to terminate the loop, confirm the selection and return. 
+        if(modeButton.isPressed()){
+          isRunning = false;
+          confirmLight();
+          return;
+        }
+
+        // Display the colors we just set on the actual LEDs
+        delay(ledFadeDelay); 
+        LEDS.show();
+      }
     }
-
   }
-
 } 
 
-
-
 void modeManager(){
-
-  currentModeTracker++;
-
-  if(currentModeTracker > 3){
-    currentModeTracker = 1;
+  if(allowModeChange){
+    currentModeTracker++;
+    if(currentModeTracker > 3){
+      currentModeTracker = 1;
+    }
+    switch(currentModeTracker){
+      case 1:
+        allowColorChange = true;
+        currentColorTracker--;
+        cycleQuickColor();
+        break;
+      case 2:
+        allowColorChange = true;
+        defaultOffFlash();
+        break;
+      case 3:
+        allowColorChange = true;
+        defaultColorFlash();
+        break;
+      default:
+        break;
+    }
   }
-
-  switch(currentModeTracker){
-    case 1:
-      currentColorTracker--;
-      cycleQuickColor();
-      break;
-    case 2:
-      defaultOffFlash();
-      break;
-    case 3:
-      defaultColorFlash();
-      break;
-    default:
-      break;
-    
-  }
-  
 }
 
 
@@ -446,7 +451,6 @@ void defaultOffFlash(){
     colorButton.read();
 
     if(modeButton.isPressed()){
-      //currentModeTracker--;
       break;
     }
     
@@ -458,17 +462,17 @@ void defaultOffFlash(){
       FastLED.show();
     }
   }
-  
 }
 
 
+
 void defaultColorFlash(){
+ 
   while(true){
     modeButton.read();
     colorButton.read();
 
     if(modeButton.isPressed()){
-      //currentModeTracker--;
       break;
     }
     
@@ -481,7 +485,6 @@ void defaultColorFlash(){
       FastLED.show();
     }
   }
-  
 }
 
 
